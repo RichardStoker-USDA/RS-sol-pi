@@ -64,12 +64,15 @@ From the fork checkout, use the lockfile to install the tested Pi and apply its 
 
 ```bash
 pnpm install --frozen-lockfile --ignore-scripts
-pnpm exec pi install /absolute/path/to/RS-sol-pi
+pnpm run pi install /absolute/path/to/RS-sol-pi
 ```
 
-Run `pnpm exec pi` from the checkout to use that Pi build. To install only for another project, run
-`/absolute/path/to/RS-sol-pi/node_modules/.bin/pi install /absolute/path/to/RS-sol-pi --local --approve`
-from the trusted target project.
+Run `pnpm run pi` from the checkout. It uses Pi's modular CLI, which loads dependencies from the patched lockfile.
+To install only for another project, run the following command from the trusted target project:
+
+```bash
+node /absolute/path/to/RS-sol-pi/node_modules/@earendil-works/pi-coding-agent/dist/cli.js install /absolute/path/to/RS-sol-pi --local --approve
+```
 
 ### Configure
 

@@ -51,12 +51,13 @@ Stop if any command fails. Do not hide a failure with `|| true` or replace the f
 
 ## Phase 2: install Pi and SoL-Pi
 
-Use the Pi executable installed in phase 1. The checkout's pnpm overrides pin Undici and brace-expansion
-to patched releases. Use the absolute `node_modules/.bin/pi` path from the SoL-Pi checkout for the `pi`
-commands below (`pi.cmd` on Windows).
+Use the modular CLI from phase 1. It loads the patched Undici and brace-expansion from the frozen pnpm
+lockfile. Pi's default binary embeds its own dependency versions. In commands below, replace `pi` with
+`node /absolute/path/to/RS-sol-pi/node_modules/@earendil-works/pi-coding-agent/dist/cli.js` when running
+from another project.
 
 ```bash
-pnpm exec pi --version
+pnpm run pi --version
 ```
 
 Require Pi to report `0.85.1`.
