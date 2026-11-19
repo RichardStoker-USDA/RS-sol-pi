@@ -32,7 +32,7 @@ From `sol_pi_root`, record the repository state without changing it:
 git status --short --branch
 git rev-parse HEAD
 node --version
-npm --version
+pnpm --version
 ```
 
 Require Node.js 22.19 or newer. Install from the lockfile and run the source checks:
@@ -52,8 +52,8 @@ Stop if any command fails. Do not hide a failure with `|| true` or replace the f
 ## Phase 2: install Pi and SoL-Pi
 
 Use the modular CLI from phase 1. It loads the patched Undici and brace-expansion from the frozen pnpm
-lockfile. Pi's default binary embeds its own dependency versions. In commands below, replace `pi` with
-`node /absolute/path/to/RS-sol-pi/node_modules/@earendil-works/pi-coding-agent/dist/cli.js` when running
+lockfile. Pi's default binary embeds its own dependency versions. For each `pi` command below, use
+`pnpm run pi` in the checkout or `node /absolute/path/to/RS-sol-pi/node_modules/@earendil-works/pi-coding-agent/dist/cli.js`
 from another project.
 
 ```bash
