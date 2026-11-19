@@ -16,7 +16,7 @@ The following packages are supplied by the user's Pi installation and retain the
 
 ## Development-only dependencies
 
-`@types/node` (MIT), TypeScript (Apache-2.0), and Vitest (MIT) are used to type-check and test the repository. They are not included in the SoL-Pi npm tarball. Exact versions and transitive dependency metadata are recorded in `package-lock.json`.
+`@types/node` (MIT), TypeScript (Apache-2.0), and Vitest (MIT) are used to type-check and test the repository. They are not included in the SoL-Pi npm tarball. Exact versions and transitive dependency metadata are recorded in `pnpm-lock.yaml`.
 
 ## Star history chart generation
 

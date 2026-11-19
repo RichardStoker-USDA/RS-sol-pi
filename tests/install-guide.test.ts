@@ -37,9 +37,9 @@ describe("agent installation instructions", () => {
 		const requiredText = [
 			"Node.js 22.19",
 			`${piPackage}@${devDependencies[piPackage]}`,
-			"npm ci --ignore-scripts",
-			"npm run check",
-			"npm audit",
+			"pnpm install --frozen-lockfile --ignore-scripts",
+			"pnpm run check",
+			"pnpm audit",
 			"pi install",
 			'"actionFusion": true',
 			'"observationPack": true',

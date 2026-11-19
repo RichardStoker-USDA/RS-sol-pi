@@ -51,7 +51,7 @@ This can reduce repeated prompt volume. It adds a model call and does not establ
 
 ## Verify the profile
 
-Run `npm ci --ignore-scripts` and `npm run check` for the source checks and package file list.
+Run `pnpm install --frozen-lockfile --ignore-scripts` and `pnpm run check` for the source checks and package file list.
 Validate your effective settings with `node scripts/check-sol-pi-config.mjs --config /path/to/sol-pi.json`.
 Use a representative diagnostic log and check the archived output and exact quotes before enabling the
 reducer for routine work.

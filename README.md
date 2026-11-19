@@ -55,28 +55,21 @@ Read the [SoL-Pi blog](https://nvlabs.github.io/SoL-Pi/) for a deeper look at th
 ### Requirements
 
 - Node.js 22.19 or newer
-- npm
+- pnpm 12.15.0
 - `@earendil-works/pi-coding-agent` 0.85.1
 
 ### Install
 
-Install the tested Pi release:
+From the fork checkout, use the lockfile to install the tested Pi and apply its dependency overrides:
 
 ```bash
-npm install --global @earendil-works/pi-coding-agent@0.85.1
+pnpm install --frozen-lockfile --ignore-scripts
+pnpm exec pi install /absolute/path/to/RS-sol-pi
 ```
 
-After the [source checks](agents-install.md) pass, install the fork from its checkout:
-
-```bash
-pi install /absolute/path/to/RS-sol-pi
-```
-
-To install it only for the current project, use the project-local scope:
-
-```bash
-pi install /absolute/path/to/RS-sol-pi --local --approve
-```
+Run `pnpm exec pi` from the checkout to use that Pi build. To install only for another project, run
+`/absolute/path/to/RS-sol-pi/node_modules/.bin/pi install /absolute/path/to/RS-sol-pi --local --approve`
+from the trusted target project.
 
 ### Configure
 
@@ -134,13 +127,13 @@ Evidence-Preserving Reducer may send eligible diagnostic-log content to its conf
 Install from the lockfile and run the complete source checks:
 
 ```bash
-npm ci --ignore-scripts
-npm run check
-npm audit --audit-level=high
+pnpm install --frozen-lockfile --ignore-scripts
+pnpm run check
+pnpm audit --audit-level=high
 node scripts/check-pi-compat.mjs
 ```
 
-`npm run check` covers TypeScript, the complete test suite, and package inspection. The development dependency set is pinned to Pi 0.85.1; runtime Pi packages remain peer dependencies so Pi owns their installation and upgrades.
+`pnpm run check` covers TypeScript, the complete test suite, and package inspection. The development dependency set is pinned to Pi 0.85.1; runtime Pi packages remain peer dependencies so Pi owns their installation and upgrades.
 
 ## Project Status
 

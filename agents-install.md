@@ -38,27 +38,28 @@ npm --version
 Require Node.js 22.19 or newer. Install from the lockfile and run the source checks:
 
 ```bash
-npm ci --ignore-scripts
-npm run check
-npm audit --audit-level=high
+pnpm install --frozen-lockfile --ignore-scripts
+pnpm run check
+pnpm audit --audit-level=high
 node scripts/check-pi-compat.mjs
-npx vitest run tests/all-mechanisms.test.ts
+pnpm exec vitest run tests/all-mechanisms.test.ts
 ```
 
-`npm run check` covers type checking, the complete test suite, and package inspection. `tests/all-mechanisms.test.ts` confirms that one all-enabled configuration registers all four mechanisms against Pi's public extension API. The tests run without a model provider.
+`pnpm run check` covers type checking, the complete test suite, and package inspection. `tests/all-mechanisms.test.ts` confirms that one all-enabled configuration registers all four mechanisms against Pi's public extension API. The tests run without a model provider.
 
-Stop if any command fails. Do not hide a failure with `|| true` or replace `npm ci` with an unlocked install.
+Stop if any command fails. Do not hide a failure with `|| true` or replace the frozen lockfile install with an unlocked install.
 
 ## Phase 2: install Pi and SoL-Pi
 
-Install the tested Pi release without changing its source:
+Use the Pi executable installed in phase 1. The checkout's pnpm overrides pin Undici and brace-expansion
+to patched releases. Use the absolute `node_modules/.bin/pi` path from the SoL-Pi checkout for the `pi`
+commands below (`pi.cmd` on Windows).
 
 ```bash
-npm install --global --ignore-scripts @earendil-works/pi-coding-agent@0.85.1
-pi --version
+pnpm exec pi --version
 ```
 
-Require `pi --version` to report `0.85.1`.
+Require Pi to report `0.85.1`.
 
 For a project-local registration, run this from `target_project` and substitute the resolved absolute `sol_pi_root`:
 
@@ -124,7 +125,7 @@ Require exit status 0 and retain its JSON output. The check applies SoL-Pi's def
 
 1. Run `pi list --approve` from `target_project` and confirm the expected SoL-Pi source and scope.
 2. Run `check-sol-pi-config.mjs --require-all-enabled` against the effective `sol-pi.json`.
-3. Re-run `npx vitest run tests/all-mechanisms.test.ts` from `sol_pi_root`.
+3. Re-run `pnpm exec vitest run tests/all-mechanisms.test.ts` from `sol_pi_root`.
 4. Start Pi with `--offline --approve`, send no prompt, confirm there is no extension load error, and exit.
 5. Confirm that upstream Pi was not patched and that the SoL-Pi checkout contains no vendored Pi monorepo source.
 
