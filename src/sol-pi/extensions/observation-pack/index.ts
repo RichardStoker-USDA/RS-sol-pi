@@ -34,6 +34,8 @@ import {
 	isPureTextResult,
 	observationPath,
 	placeholderFor,
+	resolveExcerptOptions,
+	type ObservationPackOptions,
 	type RecallChunk,
 	readRecallChunk,
 } from "./observation.ts";
@@ -48,7 +50,8 @@ const RECALL_LIMITS = {
 	maxLines: RECALL_MAX_LINES - RECALL_HEADER_LINES,
 };
 
-export function createObservationPackExtension(): ExtensionFactory {
+export function createObservationPackExtension(options: ObservationPackOptions = {}): ExtensionFactory {
+	const excerptOptions = resolveExcerptOptions(options);
 	return (pi: ExtensionAPI) => {
 		const sentCounts = new Map<string, number>();
 		const ledgers = new Map<string, Ledger>();
@@ -174,7 +177,7 @@ export function createObservationPackExtension(): ExtensionFactory {
 						continue;
 					}
 
-					const placeholder = placeholderFor(observation);
+					const placeholder = placeholderFor(observation, excerptOptions);
 					const placeholderTokens = estimateTokens(placeholder);
 					const removedTokens = Math.max(0, observation.tokens - placeholderTokens);
 					await ledgerFor(ctx)({
@@ -220,8 +223,8 @@ export {
 	THRESHOLD_BYTES,
 } from "./observation.ts";
 
-export function registerObservationPack(pi: ExtensionAPI): void {
-	createObservationPackExtension()(pi);
+export function registerObservationPack(pi: ExtensionAPI, options: ObservationPackOptions = {}): void {
+	createObservationPackExtension(options)(pi);
 }
 
 export default registerObservationPack;

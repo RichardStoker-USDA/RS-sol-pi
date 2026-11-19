@@ -145,7 +145,29 @@ describe("SoL-Pi config", () => {
 		);
 	});
 
-	it.each([null, "12.5", -1])("rejects an invalid cache write/read ratio: %j", (cacheWriteReadRatio) => {
+	it("allows pressure-only compaction and larger bounded excerpts", () => {
+		const { agentDir, cwd } = fixture();
+		writeFileSync(join(agentDir, "sol-pi.json"), JSON.stringify({
+			version: 1, cacheWriteReadRatio: null,
+			observationPackHeadBytes: 2048, observationPackTailBytes: 1536,
+			onlineContextCompactKeepRecentTokens: 65536, onlineContextCompactReserveTokens: 65536,
+		}));
+		expect(loadSolPiConfig(cwd, agentDir)).toMatchObject({
+			cacheWriteReadRatio: null, observationPackHeadBytes: 2048, observationPackTailBytes: 1536,
+			onlineContextCompactKeepRecentTokens: 65536, onlineContextCompactReserveTokens: 65536,
+		});
+	});
+
+	it.each([
+		["observationPackHeadBytes", 4097], ["observationPackTailBytes", 0],
+		["onlineContextCompactKeepRecentTokens", null], ["onlineContextCompactReserveTokens", 1.5],
+	] as const)("rejects an invalid integer option: %s=%j", (key, value) => {
+		const { agentDir, cwd } = fixture();
+		writeFileSync(join(agentDir, "sol-pi.json"), JSON.stringify({ version: 1, [key]: value }));
+		expect(() => loadSolPiConfig(cwd, agentDir)).toThrow(`${key} must be a positive safe integer`);
+	});
+
+	it.each(["12.5", -1])("rejects an invalid cache write/read ratio: %j", (cacheWriteReadRatio) => {
 		const { agentDir, cwd } = fixture();
 		const path = join(agentDir, "sol-pi.json");
 		writeFileSync(path, JSON.stringify({ version: 1, cacheWriteReadRatio }));

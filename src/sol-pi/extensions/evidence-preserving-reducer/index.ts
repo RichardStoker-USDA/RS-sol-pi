@@ -27,7 +27,7 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import { runtimeRoot } from "../../runtime-paths.ts";
 import { formatSavingsBytes, showSolPiSavings } from "../../tui.ts";
-import { archiveBody, archiveRoot } from "./archive.ts";
+import { archiveBody, archiveRoot, type ArchiveObject } from "./archive.ts";
 import { reducibleToolResult } from "./candidate.ts";
 import {
 	DIAGNOSTIC_COMMAND,
@@ -74,7 +74,13 @@ export async function reduceToolResult(
 		return undefined;
 	}
 
-	const archive = await archiveBody(archiveRoot(config), body);
+	let archive: ArchiveObject;
+	try {
+		archive = await archiveBody(archiveRoot(config), body);
+	} catch {
+		journal("fallback", { toolCallId: event.toolCallId, reason: "archive-unavailable" });
+		return undefined;
+	}
 	journal("candidate", {
 		toolCallId: event.toolCallId,
 		commandSha256: sha256(command),
@@ -109,7 +115,6 @@ export async function reduceToolResult(
 		provider: provider.provider,
 		model: provider.model,
 		stopReason: provider.stopReason,
-		errorMessage: provider.errorMessage,
 		usage: provider.usage,
 	});
 	if (!provider.ok) {
@@ -118,7 +123,6 @@ export async function reduceToolResult(
 			sourceSha256: archive.hash,
 			reason: "model-response-error",
 			stopReason: provider.stopReason,
-			errorMessage: provider.errorMessage,
 		});
 		return undefined;
 	}
@@ -133,7 +137,15 @@ export async function reduceToolResult(
 		});
 		return undefined;
 	}
-	const receipt = receiptText(command, archive, checked.value, provider);
+	if (checked.value.uncertain || checked.value.evidence.length === 0) {
+		journal("fallback", {
+			toolCallId: event.toolCallId,
+			sourceSha256: archive.hash,
+			reason: checked.value.uncertain ? "uncertain-evidence" : "empty-evidence",
+		});
+		return undefined;
+	}
+	const receipt = receiptText(command, archive, body, checked.value, provider);
 	const receiptBytes = Buffer.byteLength(receipt, "utf8");
 	if (receiptBytes >= archive.bytes) {
 		journal("fallback", {
@@ -157,7 +169,7 @@ export async function reduceToolResult(
 		uncertain: checked.value.uncertain,
 		usage: provider.usage,
 	});
-	showSolPiSavings(context, "Luna Delegating", formatSavingsBytes(archive.bytes - receiptBytes));
+	showSolPiSavings(context, "Evidence Reducer", formatSavingsBytes(archive.bytes - receiptBytes));
 	return {
 		content: reducible.projectReceipt(receipt),
 		isError: event.isError,

@@ -56,26 +56,26 @@ Read the [SoL-Pi blog](https://nvlabs.github.io/SoL-Pi/) for a deeper look at th
 
 - Node.js 22.19 or newer
 - npm
-- `@earendil-works/pi-coding-agent` 0.84.2
+- `@earendil-works/pi-coding-agent` 0.85.1
 
 ### Install
 
 Install the tested Pi release:
 
 ```bash
-npm install --global @earendil-works/pi-coding-agent@0.84.2
+npm install --global @earendil-works/pi-coding-agent@0.85.1
 ```
 
-Then install SoL-Pi directly from [NVlabs/SoL-Pi](https://github.com/NVlabs/SoL-Pi):
+After the [source checks](agents-install.md) pass, install the fork from its checkout:
 
 ```bash
-pi install git:github.com/NVlabs/SoL-Pi
+pi install /absolute/path/to/RS-sol-pi
 ```
 
 To install it only for the current project, use the project-local scope:
 
 ```bash
-pi install git:github.com/NVlabs/SoL-Pi --local --approve
+pi install /absolute/path/to/RS-sol-pi --local --approve
 ```
 
 ### Configure
@@ -140,7 +140,7 @@ npm audit --audit-level=high
 node scripts/check-pi-compat.mjs
 ```
 
-`npm run check` covers TypeScript, the complete test suite, and package inspection. The development dependency set is pinned to Pi 0.84.2; runtime Pi packages remain peer dependencies so Pi owns their installation and upgrades.
+`npm run check` covers TypeScript, the complete test suite, and package inspection. The development dependency set is pinned to Pi 0.85.1; runtime Pi packages remain peer dependencies so Pi owns their installation and upgrades.
 
 ## Project Status
 
@@ -165,3 +165,7 @@ SoL-Pi is released under the [MIT License](LICENSE).
     <img alt="SoL-Pi star history chart" src="https://raw.githubusercontent.com/NVlabs/SoL-Pi/star-history/star-history-light.svg" width="100%" />
   </picture>
 </a>
+
+## Local models
+
+The fork includes an optional [local-model profile](docs/local_models.md) with larger observation excerpts, context-pressure-only compaction, and single-agent operation. It uses Pi's public extension API and is tested against Pi 0.85.1.

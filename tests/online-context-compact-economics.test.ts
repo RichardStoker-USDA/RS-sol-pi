@@ -75,6 +75,12 @@ describe("Online Context Compact economics", () => {
 		});
 	});
 
+	it("retains window protection without any token price", () => {
+		expect(decision({ cacheWriteReadRatio: null, contextTokens: 150_000,
+			economics: { ...DEFAULT_COMPACTION_ECONOMICS, windowReserveTokens: 65_536 },
+		})).toMatchObject({ compact: true, reason: "window_protection" });
+	});
+
 	it("charges carried debt only after the first compaction", () => {
 		const result = decision({
 			priorCompactionCount: 1,

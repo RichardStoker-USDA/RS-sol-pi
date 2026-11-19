@@ -175,9 +175,23 @@ function completeLineExcerpt(text: string, budgetBytes: number, fromEnd: boolean
 	return selected.join("");
 }
 
-export function placeholderFor(observation: Observation): string {
-	const headBudget = Math.floor(PLACEHOLDER_EXCERPT_BYTES / 2);
-	const tailBudget = PLACEHOLDER_EXCERPT_BYTES - headBudget;
+export interface ObservationPackOptions {
+	readonly headBytes?: number;
+	readonly tailBytes?: number;
+}
+
+export function resolveExcerptOptions(options: ObservationPackOptions = {}): Required<ObservationPackOptions> {
+	const resolved = { headBytes: options.headBytes ?? 512, tailBytes: options.tailBytes ?? 512 };
+	for (const value of Object.values(resolved)) {
+		if (!Number.isSafeInteger(value) || value < 1 || value > 4096) {
+			throw new Error("Observation Pack excerpt budgets must be integers between 1 and 4096 bytes");
+		}
+	}
+	return resolved;
+}
+
+export function placeholderFor(observation: Observation, options: ObservationPackOptions = {}): string {
+	const { headBytes: headBudget, tailBytes: tailBudget } = resolveExcerptOptions(options);
 	const head = completeLineExcerpt(observation.text, headBudget, false);
 	const tail = completeLineExcerpt(observation.text, tailBudget, true);
 	return [

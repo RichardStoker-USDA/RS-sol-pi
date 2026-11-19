@@ -17,22 +17,30 @@ export interface SolPiConfig {
 	readonly version: 1;
 	readonly actionFusion: boolean;
 	readonly observationPack: boolean;
+	readonly observationPackHeadBytes: number;
+	readonly observationPackTailBytes: number;
 	readonly evidencePreservingReducer: boolean;
 	readonly evidencePreservingReducerModel: string;
 	readonly evidencePreservingReducerProvider: string;
 	readonly onlineContextCompact: boolean;
-	readonly cacheWriteReadRatio: number;
+	readonly cacheWriteReadRatio: number | null;
+	readonly onlineContextCompactKeepRecentTokens: number;
+	readonly onlineContextCompactReserveTokens: number;
 }
 
 export const DEFAULT_CONFIG: SolPiConfig = Object.freeze({
 	version: 1,
 	actionFusion: false,
 	observationPack: false,
+	observationPackHeadBytes: 512,
+	observationPackTailBytes: 512,
 	evidencePreservingReducer: false,
 	evidencePreservingReducerModel: DEFAULT_REDUCER_MODEL,
 	evidencePreservingReducerProvider: DEFAULT_REDUCER_PROVIDER,
 	onlineContextCompact: false,
 	cacheWriteReadRatio: DEFAULT_CACHE_WRITE_READ_RATIO,
+	onlineContextCompactKeepRecentTokens: 20_000,
+	onlineContextCompactReserveTokens: 16_384,
 });
 
 const FEATURE_KEYS = [
@@ -42,7 +50,8 @@ const FEATURE_KEYS = [
 	"onlineContextCompact",
 ] as const;
 const STRING_KEYS = ["evidencePreservingReducerModel", "evidencePreservingReducerProvider"] as const;
-const CONFIG_KEYS = new Set<string>(["version", ...FEATURE_KEYS, ...STRING_KEYS, "cacheWriteReadRatio"]);
+const INTEGER_KEYS = ["observationPackHeadBytes", "observationPackTailBytes", "onlineContextCompactKeepRecentTokens", "onlineContextCompactReserveTokens"] as const;
+const CONFIG_KEYS = new Set<string>(["version", ...FEATURE_KEYS, ...STRING_KEYS, ...INTEGER_KEYS, "cacheWriteReadRatio"]);
 
 export function findConfigPath(
 	cwd = process.cwd(),
@@ -93,11 +102,18 @@ export function loadSolPiConfig(
 		? record.cacheWriteReadRatio
 		: DEFAULT_CACHE_WRITE_READ_RATIO;
 	if (
-		typeof cacheWriteReadRatio !== "number" ||
+		cacheWriteReadRatio !== null && (typeof cacheWriteReadRatio !== "number" ||
 		!Number.isFinite(cacheWriteReadRatio) ||
-		cacheWriteReadRatio < 0
+		cacheWriteReadRatio < 0)
 	) {
-		throw new Error(`SoL-Pi config cacheWriteReadRatio must be a finite non-negative number: ${path}`);
+		throw new Error(`SoL-Pi config cacheWriteReadRatio must be a finite non-negative number or null: ${path}`);
+	}
+	for (const key of INTEGER_KEYS) {
+		const value = Object.hasOwn(record, key) ? record[key] : DEFAULT_CONFIG[key];
+		const maximum = key.startsWith("observationPack") ? 4096 : Number.MAX_SAFE_INTEGER;
+		if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 1 || value > maximum) {
+			throw new Error(`SoL-Pi config ${key} must be a positive safe integer no larger than ${maximum}: ${path}`);
+		}
 	}
 	const evidencePreservingReducerModel = stringConfigValue(
 		record,

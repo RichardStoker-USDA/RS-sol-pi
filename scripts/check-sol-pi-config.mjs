@@ -16,7 +16,13 @@ const DEFAULT_CACHE_WRITE_READ_RATIO = 12.5;
 const DEFAULT_EPR_REDUCER_PROVIDER = ["openai", "codex"].join("-");
 const DEFAULT_EPR_REDUCER_MODEL = ["gpt-5.6", "luna"].join("-");
 const STRING_KEYS = ["evidencePreservingReducerModel", "evidencePreservingReducerProvider"];
-const CONFIG_KEYS = new Set(["version", ...FEATURE_KEYS, ...STRING_KEYS, "cacheWriteReadRatio"]);
+const INTEGER_DEFAULTS = {
+	observationPackHeadBytes: 512,
+	observationPackTailBytes: 512,
+	onlineContextCompactKeepRecentTokens: 20_000,
+	onlineContextCompactReserveTokens: 16_384,
+};
+const CONFIG_KEYS = new Set(["version", ...FEATURE_KEYS, ...STRING_KEYS, ...Object.keys(INTEGER_DEFAULTS), "cacheWriteReadRatio"]);
 
 function fail(message) {
 	throw new Error(message);
@@ -78,13 +84,21 @@ function validateConfig(value, requireAllEnabled) {
 		? value.cacheWriteReadRatio
 		: DEFAULT_CACHE_WRITE_READ_RATIO;
 	if (
-		typeof cacheWriteReadRatio !== "number" ||
+		cacheWriteReadRatio !== null && (typeof cacheWriteReadRatio !== "number" ||
 		!Number.isFinite(cacheWriteReadRatio) ||
-		cacheWriteReadRatio < 0
+		cacheWriteReadRatio < 0)
 	) {
-		fail("cacheWriteReadRatio must be a finite non-negative number");
+		fail("cacheWriteReadRatio must be a finite non-negative number or null");
 	}
 	effective.cacheWriteReadRatio = cacheWriteReadRatio;
+	for (const [key, defaultValue] of Object.entries(INTEGER_DEFAULTS)) {
+		const configured = Object.hasOwn(value, key) ? value[key] : defaultValue;
+		const maximum = key.startsWith("observationPack") ? 4096 : Number.MAX_SAFE_INTEGER;
+		if (!Number.isSafeInteger(configured) || configured < 1 || configured > maximum) {
+			fail(`${key} must be a positive safe integer no larger than ${maximum}`);
+		}
+		effective[key] = configured;
+	}
 	effective.evidencePreservingReducerModel = stringConfigValue(
 		value,
 		"evidencePreservingReducerModel",

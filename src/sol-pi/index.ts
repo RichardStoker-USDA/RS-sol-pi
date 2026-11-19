@@ -12,14 +12,20 @@ import { registerOnlineContextCompact } from "./extensions/online-context-compac
 
 export function registerConfiguredFeatures(pi: ExtensionAPI, config: SolPiConfig): void {
 	if (config.actionFusion) registerActionFusion(pi);
-	if (config.observationPack) registerObservationPack(pi);
+	if (config.observationPack) registerObservationPack(pi, {
+		headBytes: config.observationPackHeadBytes,
+		tailBytes: config.observationPackTailBytes,
+	});
 	if (config.evidencePreservingReducer) {
 		registerEvidencePreservingReducer(pi, {
 			reducerModel: config.evidencePreservingReducerModel,
 			reducerProvider: config.evidencePreservingReducerProvider,
 		});
 	}
-	if (config.onlineContextCompact) registerOnlineContextCompact(pi, config.cacheWriteReadRatio);
+	if (config.onlineContextCompact) registerOnlineContextCompact(pi, config.cacheWriteReadRatio, {
+		keepRecentTokens: config.onlineContextCompactKeepRecentTokens,
+		windowReserveTokens: config.onlineContextCompactReserveTokens,
+	});
 }
 
 export type SolPiConfigLoader = (ctx: ExtensionContext) => SolPiConfig;

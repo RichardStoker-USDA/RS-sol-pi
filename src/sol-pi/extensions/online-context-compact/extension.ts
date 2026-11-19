@@ -43,6 +43,7 @@ export const POST_COMPACTION_PLAN_REMINDER =
 export type OnlineContextCompactOptions = {
 	readonly cacheWriteReadRatio?: number | null;
 	readonly keepRecentTokens?: number;
+	readonly windowReserveTokens?: number;
 };
 
 type PendingBoundary = { readonly toolCallId: string };
@@ -155,6 +156,10 @@ function validPositiveInteger(value: unknown): value is number {
 export function createOnlineContextCompactExtension(options: OnlineContextCompactOptions = {}): ExtensionFactory {
 	const keepRecentTokens = resolveKeepRecentTokens(options.keepRecentTokens);
 	const cacheWriteReadRatio = resolveCacheWriteReadRatio(options.cacheWriteReadRatio);
+	const windowReserveTokens = options.windowReserveTokens ?? DEFAULT_COMPACTION_ECONOMICS.windowReserveTokens;
+	if (!Number.isSafeInteger(windowReserveTokens) || windowReserveTokens < 1) {
+		throw new Error("Online Context Compact windowReserveTokens must be a positive safe integer");
+	}
 
 	return (pi) => {
 		let state: OnlineState = initialOnlineState();
@@ -299,7 +304,7 @@ export function createOnlineContextCompactExtension(options: OnlineContextCompac
 				carriedDebtTokens: state.cacheDebtTokens,
 				cacheDebtRepaymentTokens: state.cacheDebtRepaymentTokens,
 				cacheWriteReadRatio,
-				economics: DEFAULT_COMPACTION_ECONOMICS,
+				economics: { ...DEFAULT_COMPACTION_ECONOMICS, windowReserveTokens },
 			});
 			const decision: CompactionDecision =
 				priced.compact && !nativeCompactionFeasible(context.sessionManager.getBranch(), keepRecentTokens)

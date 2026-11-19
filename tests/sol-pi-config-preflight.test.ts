@@ -86,7 +86,17 @@ describe("SoL-Pi configuration preflight", () => {
 		});
 	});
 
-	it.each([null, "12.5", -1])("rejects an invalid ratio: %j", (cacheWriteReadRatio) => {
+	it("accepts the single-agent local profile", () => {
+		const result = run(writeConfig({ ...ALL_ENABLED, evidencePreservingReducer: false,
+			cacheWriteReadRatio: null, observationPackHeadBytes: 2048, observationPackTailBytes: 1536,
+			onlineContextCompactKeepRecentTokens: 65536, onlineContextCompactReserveTokens: 65536,
+		}), false);
+		expect(result.status).toBe(0);
+		expect(JSON.parse(result.stdout).effective_config).toMatchObject({ cacheWriteReadRatio: null,
+			observationPackHeadBytes: 2048, onlineContextCompactReserveTokens: 65536 });
+	});
+
+	it.each(["12.5", -1])("rejects an invalid ratio: %j", (cacheWriteReadRatio) => {
 		const result = run(writeConfig({ ...ALL_ENABLED, cacheWriteReadRatio }));
 		expect(result.status).toBe(1);
 		expect(result.stderr).toContain("cacheWriteReadRatio must be a finite non-negative number");

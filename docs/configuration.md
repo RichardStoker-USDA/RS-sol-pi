@@ -27,7 +27,7 @@ The project file replaces the global file. SoL-Pi does not merge them.
 }
 ```
 
-Feature keys may be omitted and then default to `false`. `cacheWriteReadRatio` may be omitted and then defaults to `12.5`; when present it must be a finite non-negative number, and `0` explicitly means that a cache write adds no cost relative to a cache read. `evidencePreservingReducerProvider` and `evidencePreservingReducerModel` may be omitted and then use the built-in reducer route; when present each must be a non-empty string. Unknown keys, unsupported versions, malformed JSON, non-boolean feature values, invalid ratios, and invalid reducer model fields stop extension loading with a direct error.
+Feature keys may be omitted and then default to `false`. `cacheWriteReadRatio` may be omitted and then defaults to `12.5`; when present it must be a finite non-negative number or `null`, `null` disables price-driven compaction while retaining context-window protection, and `0` explicitly means that a cache write adds no cost relative to a cache read. `evidencePreservingReducerProvider` and `evidencePreservingReducerModel` may be omitted and then use the built-in reducer route; when present each must be a non-empty string. Unknown keys, unsupported versions, malformed JSON, non-boolean feature values, invalid ratios, and invalid reducer model fields stop extension loading with a direct error.
 
 For the managed all-enabled installation described in the [agent installation and configuration protocol](../agents-install.md), validate the effective file before starting Pi:
 
@@ -49,6 +49,10 @@ This preflight does not make every valid SoL-Pi configuration all-enabled. Witho
 - `onlineContextCompact`: registers `update_plan` and boundary-driven native compaction after the other SoL-Pi context transformers.
 - `cacheWriteReadRatio`: supplies the single economic decision ratio used by Online Context Compact.
 
+Observation Pack accepts `observationPackHeadBytes` and `observationPackTailBytes`, each an integer from 1 through 4,096. Both default to 512. These budgets retain complete lines; a line longer than its budget is omitted and remains available through `obs_recall`. Two full provider sends and the 10 KiB participation threshold are unchanged.
+
+See [the local-model profile](local_models.md) for a profile that retains more evidence and compacts only under context pressure.
+
 ## Evidence-Preserving Reducer runtime inputs
 
 The release entry supplies the run label and session-derived storage. It uses one configurable model route:
@@ -62,7 +66,7 @@ The release entry uses two runtime inputs:
 - **Context window** — from `ExtensionContext.getContextUsage()`, used for window-pressure protection.
 - **Cache write/read ratio** — from `cacheWriteReadRatio` in the effective `sol-pi.json`. The value remains fixed for the session and is not recomputed when the model changes. It drives one runtime decision and is not a cost report.
 
-The configured ratio stays fixed for the loaded extension. The mechanism stores its current plan, progress summaries, request horizon, context growth, and compaction debt as versioned custom entries in Pi's session log. After a successful compaction it sends one hidden, generic message with `triggerTurn: true`, which starts a new turn and instructs the assistant to rebuild its plan. A settlement barrier keeps print and JSON modes in the same Pi invocation until that continuation settles, so callers do not need to resume the session or inject `Continue working`. Cancelling or exiting does not schedule an automatic continuation. The mechanism creates no separate Online Context Compact files. The programmatic factory exposes only a matching retained-tail value for installations whose Pi compaction setting differs from the default.
+The configured ratio stays fixed for the loaded extension. The mechanism stores its current plan, progress summaries, request horizon, context growth, and compaction debt as versioned custom entries in Pi's session log. After a successful compaction it sends one hidden, generic message with `triggerTurn: true`, which starts a new turn and instructs the assistant to rebuild its plan. A settlement barrier keeps print and JSON modes in the same Pi invocation until that continuation settles, so callers do not need to resume the session or inject `Continue working`. Cancelling or exiting does not schedule an automatic continuation. The mechanism creates no separate Online Context Compact files. The JSON options `onlineContextCompactKeepRecentTokens` (default 20,000) and `onlineContextCompactReserveTokens` (default 16,384) must match Pi's retained-tail and reserve settings. Both are positive safe integers. The programmatic factory exposes `keepRecentTokens` and `windowReserveTokens` for the same purpose.
 
 ## Pi integration
 

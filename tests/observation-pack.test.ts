@@ -92,6 +92,20 @@ function captureConsoleErrors(): string[] {
 }
 
 describe("observation pack", () => {
+	it("retains larger asymmetric excerpts and recalls the exact omitted bytes", async () => {
+		const sessionDir = await sessionRoot();
+		const pi = new FakePi();
+		createObservationPackExtension({ headBytes: 2048, tailBytes: 1536 })(pi.asExtensionApi());
+		const body = "h".repeat(1500) + "\n" + repeatPastThreshold("中間 evidence\n") + "t".repeat(1200) + "\n";
+		const message = toolResult(body);
+		const projected = await project(pi, message, sessionDir, 3);
+		expect(projected.slice(0, 2)).toEqual([body, body]);
+		expect(projected[2]).toContain("h".repeat(1500));
+		expect(projected[2]).toContain("t".repeat(1200));
+		expect(Buffer.byteLength(projected[2]!)).toBeLessThan(Buffer.byteLength(body));
+		expect(await readFile(observationPath(sessionDir, observationId(message)), "utf8")).toBe(body);
+	});
+
 	it("registers its public surface without legacy environment flags", () => {
 		const pi = observationPackPi();
 		expect(pi.handlers.has("context")).toBe(true);

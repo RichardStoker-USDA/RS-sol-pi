@@ -4,7 +4,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { isAbsolute, join, relative } from "node:path";
 import type { AssistantMessage, Context, Model } from "@earendil-works/pi-ai";
@@ -15,6 +15,7 @@ import {
 	DIAGNOSTIC_COMMAND,
 	loadReducerConfig,
 	REDUCER_RECEIPT_SCHEMA,
+	validateReceipt,
 } from "../src/sol-pi/extensions/evidence-preserving-reducer/index.ts";
 import { archiveBody } from "../src/sol-pi/extensions/evidence-preserving-reducer/archive.ts";
 import {
@@ -274,7 +275,7 @@ describe("evidence-preserving reducer", () => {
 		};
 
 		expect(call?.model).toBe(REDUCER_MODEL);
-		expect(call?.context.systemPrompt).toContain("lossless test/build output reducer");
+		expect(call?.context.systemPrompt).toContain("test/build evidence extractor");
 		expect(contextInput(call!.context)).toContain("<untrusted_log>");
 		expect(call?.options).toMatchObject({ cacheRetention: "none", maxTokens: 2_048, timeoutMs: 90_000 });
 		expect(call?.options.signal).toBeInstanceOf(AbortSignal);
@@ -283,7 +284,7 @@ describe("evidence-preserving reducer", () => {
 		expect(receipt).toMatch(/line=2/u);
 		expect(receipt).toMatch(/reducer_provider=openai-codex/u);
 		expect(receipt).toContain(`reducer_model=${REDUCER_MODEL.id}`);
-		expect(receipt).toMatch(/authority=Sol retains diagnosis/u);
+		expect(receipt).toMatch(/authority=the main agent retains diagnosis/u);
 		expect(Buffer.byteLength(receipt)).toBeLessThan(Buffer.byteLength(body));
 
 		const events = manager.customEntryData();
@@ -297,7 +298,7 @@ describe("evidence-preserving reducer", () => {
 		expect(events.filter((entry) => entry.kind === "applied")).toHaveLength(1);
 		expect(notify).toHaveBeenCalledTimes(1);
 		expect(notify.mock.calls[0]?.[0]).toMatch(
-			/^⚡ SoL-Pi · Luna Delegating\nMoney saved · .+ removed from future prompts$/u,
+			/^⚡ SoL-Pi · Evidence Reducer\nMoney saved · .+ removed from future prompts$/u,
 		);
 	});
 
@@ -379,7 +380,8 @@ describe("evidence-preserving reducer", () => {
 			expect(projected).toMatch(/Successfully wrote 12 bytes to target\.ts/u);
 			expect(projected).toMatch(failed ? /\[then_run:failed\]/u : /\[then_run:succeeded\]/u);
 			expect(projected).toMatch(/sol_pi_evidence_receipt_v1/u);
-			expect(projected).not.toContain("diagnostic output");
+			expect(projected).not.toContain(body);
+			expect(projected).toContain("source_tail_utf8=");
 			expect(result.isError).toBe(failed);
 			expect(result.details.patch).toBe("test patch");
 			const candidate = manager.customEntryData().find((entry) => entry.kind === "candidate");
@@ -506,7 +508,7 @@ describe("evidence-preserving reducer", () => {
 			bashEvent("ERROR truncated", { details: { fullOutputPath: outputPath } }),
 			context,
 		);
-		expect(input).toContain(fullBody);
+		expect(input).toContain("1\tERROR full output\n2\tfull diagnostic");
 		const candidate = manager.customEntryData().find((entry) => entry.kind === "candidate");
 		expect(await readFile(String(candidate?.sourcePath), "utf8")).toBe(fullBody);
 
@@ -519,7 +521,7 @@ describe("evidence-preserving reducer", () => {
 			bashEvent(inlineBody, { toolCallId: "call-2", details: { fullOutputPath: outsidePath } }),
 			context,
 		);
-		expect(input).toContain(inlineBody);
+		expect(input).toContain("1\tERROR inline output\n2\tinline diagnostic");
 		expect(input).not.toContain("ERROR outside file");
 	});
 
@@ -540,5 +542,100 @@ describe("evidence-preserving reducer", () => {
 			),
 		).toBeUndefined();
 		expect(calls).toBe(0);
+	});
+
+	it("keeps exact ending bytes when the model omits aggregate results", async () => {
+		const root = await storeRoot();
+		const body = `ERROR arithmetic failed\n${"diagnostic λ🙂\n".repeat(600)}2 failed, 598 passed in 4s\n`;
+		const { context, pi } = load(root, modelComplete(body, (input) => ({
+			schema: REDUCER_RECEIPT_SCHEMA, source_sha256: sourceHash(input), status: "failure", uncertain: false,
+			evidence: [{ kind: "failure", quote: "ERROR arithmetic failed" }],
+		})));
+		const result = await pi.emit("tool_result", bashEvent(body), context) as { content: { text: string }[] };
+		const receipt = result.content[0]!.text;
+		const tailLine = receipt.split("\n").find((line) => line.startsWith("source_tail_utf8="))!;
+		const tail = JSON.parse(tailLine.slice("source_tail_utf8=".length)) as string;
+		expect(body.endsWith(tail)).toBe(true);
+		expect(Buffer.byteLength(tail)).toBeLessThanOrEqual(1536);
+		expect(tail).toContain("2 failed, 598 passed in 4s");
+		expect(receipt).toContain("completeness and diagnosis are not verified");
+	});
+
+	it("copies selected original lines without asking the model to retype them", async () => {
+		const root = await storeRoot();
+		const body = "test starts\n  ERROR: exact spacing λ\n\n2 tests failed\n";
+		const archive = await archiveBody(root, body);
+		const receipt = {
+			schema: REDUCER_RECEIPT_SCHEMA, source_sha256: archive.hash, status: "failure", uncertain: false,
+			evidence: [{ kind: "failure", line: 2 }, { kind: "summary", line: 4 }],
+		};
+		const result = validateReceipt(JSON.stringify(receipt), archive, body, true);
+		expect(result.ok).toBe(true);
+		if (result.ok) expect(result.value.evidence.map(({ line, quote }) => ({ line, quote }))).toEqual([
+			{ line: 2, quote: "  ERROR: exact spacing λ" }, { line: 4, quote: "2 tests failed" },
+		]);
+		for (const line of [0, 1.5, 999]) {
+			expect(validateReceipt(JSON.stringify({ ...receipt, evidence: [{ kind: "failure", line }] }), archive, body, true))
+				.toEqual({ ok: false, reason: "invalid-evidence-line" });
+		}
+		expect(validateReceipt(JSON.stringify({ ...receipt, evidence: [{ kind: "failure", line: 2, quote: "ERROR: exact spacing λ" }] }), archive, body, true))
+			.toEqual({ ok: false, reason: "unverifiable-quote" });
+		expect(validateReceipt(JSON.stringify({ ...receipt, evidence: [{ kind: "failure", line: 1 }] }), archive, body, true))
+			.toEqual({ ok: false, reason: "missing-failure-evidence" });
+	});
+
+	it.each(["uncertain", "empty"] as const)("keeps the original output for %s evidence", async (mode) => {
+		const root = await storeRoot();
+		const body = `build complete\n${"details\n".repeat(700)}`;
+		const { context, manager, pi } = load(root, modelComplete(body, (input) => ({
+			schema: REDUCER_RECEIPT_SCHEMA, source_sha256: sourceHash(input), status: "success",
+			uncertain: mode === "uncertain", evidence: mode === "empty" ? [] : [{ kind: "summary", quote: "build complete" }],
+		})));
+		expect(await pi.emit("tool_result", bashEvent(body, { isError: false }), context)).toBeUndefined();
+		expect(manager.customEntryData()).toContainEqual(expect.objectContaining({
+			kind: "fallback", reason: `${mode}-evidence`,
+		}));
+	});
+
+	it.each(["unwritable", "corrupt", "symlink"] as const)("keeps original output when its archive is %s", async (mode) => {
+		const root = await storeRoot();
+		const body = `ERROR preserved original\n${"diagnostic\n".repeat(600)}`;
+		const complete = vi.fn(async () => { throw new Error("unexpected model call"); });
+		const { context, manager, pi } = load(root, complete);
+		const config = loadReducerConfig(runtimeRoot(context));
+		const archive = await archiveBody(config.storeRoot, body);
+		if (mode === "unwritable") {
+			await rm(config.storeRoot, { recursive: true });
+			await writeFile(config.storeRoot, "a file blocks the archive directory");
+		} else if (mode === "corrupt") {
+			await writeFile(archive.path, "different bytes");
+		} else {
+			const target = join(root, "same_log.txt");
+			await writeFile(target, body);
+			await rm(archive.path);
+			await symlink(target, archive.path);
+		}
+		expect(await pi.emit("tool_result", bashEvent(body), context)).toBeUndefined();
+		expect(complete).not.toHaveBeenCalled();
+		expect(manager.customEntryData()).toContainEqual(expect.objectContaining({
+			kind: "fallback", reason: "archive-unavailable",
+		}));
+	});
+
+	it("journals the provider failure category without its arbitrary error body", async () => {
+		const root = await storeRoot();
+		const body = `ERROR preserved original\n${"diagnostic\n".repeat(600)}`;
+		const base = modelComplete(body, (input) => ({
+			schema: REDUCER_RECEIPT_SCHEMA, source_sha256: sourceHash(input), status: "failure", uncertain: false,
+			evidence: [{ kind: "failure", quote: "ERROR preserved original" }],
+		}), "error");
+		const { context, manager, pi } = load(root, async (...args) => ({
+			...await base(...args), errorMessage: "synthetic_private_error_canary",
+		}));
+		expect(await pi.emit("tool_result", bashEvent(body), context)).toBeUndefined();
+		const entries = manager.customEntryData();
+		expect(entries).toContainEqual(expect.objectContaining({ reason: "model-response-error", stopReason: "error" }));
+		expect(JSON.stringify(entries)).not.toContain("synthetic_private_error_canary");
+		expect(entries.every((entry) => !("errorMessage" in entry))).toBe(true);
 	});
 });

@@ -2,7 +2,8 @@
  * SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: MIT
  */
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { constants } from "node:fs";
+import { mkdir, open, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { isRecord, type ReducerConfig, sha256 } from "./config.ts";
 
@@ -38,9 +39,15 @@ export async function archiveBody(root: string, body: string): Promise<ArchiveOb
 		await writeFile(path, body, { encoding: "utf8", flag: "wx", mode: 0o600 });
 	} catch (error) {
 		if (!isRecord(error) || error.code !== "EEXIST") throw error;
-		const existing = await readFile(path, "utf8");
-		if (existing !== body || sha256(existing) !== hash) {
-			throw new Error(`Reducer archive integrity failure: ${path}`);
+		const file = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+		try {
+			if (!(await file.stat()).isFile()) throw new Error("Reducer archive is not a regular file");
+			const existing = await file.readFile("utf8");
+			if (existing !== body || sha256(existing) !== hash) {
+				throw new Error("Reducer archive integrity failure");
+			}
+		} finally {
+			await file.close();
 		}
 	}
 	return {

@@ -1,6 +1,6 @@
 # Pi Compatibility
 
-SoL-Pi is developed and tested against `@earendil-works/pi-coding-agent` 0.84.2. Its public API surface is also type-checked and exercised against Pi 0.81.1, the base used by the original Pi fork. The runtime range is deliberately expressed as a peer dependency because Pi owns installation and upgrade of its packages.
+SoL-Pi is developed upstream against Pi 0.84.2; this fork is tested against `@earendil-works/pi-coding-agent` 0.85.1. Its public API surface is also type-checked and exercised against Pi 0.81.1, the base used by the original Pi fork. The runtime range is deliberately expressed as a peer dependency because Pi owns installation and upgrade of its packages.
 
 SoL-Pi imports only public package exports:
 
@@ -37,7 +37,7 @@ The unpublished shared artifact layout is not read or migrated. Each session sta
 
 Online Context Compact uses ordinary public `context` and `before_provider_request` handlers instead of fork-only post-transform observer methods. Public handlers run in extension load order, so the SoL-Pi entrypoint registers Online Context Compact after its other context transformers. A third-party transformer loaded later is outside the context-growth observation used by its estimate.
 
-Pi does not expose its active retained-tail compaction setting through the public extension context. The standalone extension therefore uses the documented Pi 0.84.2 default of 20,000 tokens for its economic estimate. Its programmatic factory accepts an explicit matching value for a non-default Pi setting.
+Pi does not expose its active retained-tail compaction setting through the public extension context. The standalone extension therefore uses the documented Pi 0.84.2 default of 20,000 tokens for its economic estimate. Its JSON configuration and programmatic factory accept explicit matching retained-tail and reserve values for non-default Pi settings.
 
 Pi 0.84.2's `ExtensionContext.compact()` aborts the active agent before it summarizes, and `agent_settled` fires only once a whole run has drained every turn, retry, auto-compaction, and queued continuation. A plan boundary that selects compaction therefore saves its plan and progress state, calls `ExtensionContext.abort()` to stop the run, and runs compaction from the `agent_settled` that stop produces. The handler awaits the compaction's own `onComplete`/`onError` callbacks. On success, the extension sends a hidden reminder through public `ExtensionAPI.sendMessage()` with `triggerTurn: true`, so Pi starts a new turn against the compacted context and rebuilds the plan even when the native summary omits that instruction.
 
